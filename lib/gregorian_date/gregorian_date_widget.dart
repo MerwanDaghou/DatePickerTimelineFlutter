@@ -62,7 +62,7 @@ class GregorianDateWidget extends StatelessWidget {
                         width: 5,
                         decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.blueAccent
+                            color: Colors.red
                         ),
                       ),
                     )
