@@ -45,33 +45,33 @@ class GregorianDateWidget extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.all(8),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: <Widget>[
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Stack(
+                alignment: Alignment.center,
+                children: [
                   Text(DateFormat("MMM", locale).format(date).toUpperCase(), // Month
                       style: monthTextStyle),
-                  Text(date.day.toString(), // Date
-                      style: dateTextStyle),
-                  Text(DateFormat("E", locale).format(date).toUpperCase(), // WeekDay
-                      style: dayTextStyle)
+                  if(displayNotif)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        height: 5,
+                        width: 5,
+                        decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.blueAccent
+                        ),
+                      ),
+                    )
                 ],
               ),
-              if(displayNotif)
-                Align(
-                  alignment: Alignment.topRight,
-                  child: Container(
-                    height: 8,
-                    width: 8,
-                    decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.blueAccent
-                    ),
-                  ),
-                )
+              Text(date.day.toString(), // Date
+                  style: dateTextStyle),
+              Text(DateFormat("E", locale).format(date).toUpperCase(), // WeekDay
+                  style: dayTextStyle)
             ],
           ),
         ),
