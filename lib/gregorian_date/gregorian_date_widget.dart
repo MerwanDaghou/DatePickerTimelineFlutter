@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 class GregorianDateWidget extends StatelessWidget {
   final double? width;
   final DateTime date;
+  final bool displayNotif;
   final TextStyle? monthTextStyle, dayTextStyle, dateTextStyle;
   final Color selectionColor;
   final DateSelectionCallback? onDateSelected;
@@ -26,6 +27,7 @@ class GregorianDateWidget extends StatelessWidget {
     this.width,
     this.onDateSelected,
     this.locale,
+    this.displayNotif = false,
   });
 
   @override
@@ -43,16 +45,33 @@ class GregorianDateWidget extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.all(8),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Text(DateFormat("MMM", locale).format(date).toUpperCase(), // Month
-                  style: monthTextStyle),
-              Text(date.day.toString(), // Date
-                  style: dateTextStyle),
-              Text(DateFormat("E", locale).format(date).toUpperCase(), // WeekDay
-                  style: dayTextStyle)
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  Text(DateFormat("MMM", locale).format(date).toUpperCase(), // Month
+                      style: monthTextStyle),
+                  Text(date.day.toString(), // Date
+                      style: dateTextStyle),
+                  Text(DateFormat("E", locale).format(date).toUpperCase(), // WeekDay
+                      style: dayTextStyle)
+                ],
+              ),
+              if(displayNotif)
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Container(
+                    height: 8,
+                    width: 8,
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.blueAccent
+                    ),
+                  ),
+                )
             ],
           ),
         ),

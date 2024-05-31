@@ -68,6 +68,9 @@ class DatePicker extends StatefulWidget {
   /// Locale for the calendar default: en_us
   final String locale;
 
+  /// List of datetime where display notification
+  final List<DateTime>? datesOnNotification;
+
   DatePicker(
       this.startDate, {
         Key? key,
@@ -87,6 +90,7 @@ class DatePicker extends StatefulWidget {
         this.onDateChange,
         this.locale = "en_US",
         this.calendarType = CalendarType.gregorianDate,
+        this.datesOnNotification,
         this.directionality,
       }) : assert(
   activeDates == null || inactiveDates == null,
@@ -191,6 +195,10 @@ class _DatePickerState extends State<DatePicker> {
             bool isSelected = _currentDate != null
                 ? DateUtils.isSameDay(date, _currentDate!)
                 : false;
+
+            // Check if needs to display notification on the day;
+            bool displayNotif = widget.datesOnNotification == null ? false : widget.datesOnNotification!.contains(date);
+
             // Return the Date Widget
             switch (widget.calendarType) {
               case CalendarType.gregorianDate:
@@ -215,6 +223,7 @@ class _DatePickerState extends State<DatePicker> {
                   locale: widget.locale,
                   selectionColor:
                   isSelected ? widget.selectionColor : Colors.transparent,
+                  displayNotif: displayNotif,
                   onDateSelected: (selectedDate) {
                     // Don't notify listener if date is deactivated
                     if (isDeactivated) return;
