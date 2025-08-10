@@ -7,7 +7,7 @@ import 'package:date_picker_timeline/persian_date/persian_date_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-part 'date_type.dart';
+import 'date_type.dart';
 
 class DatePicker extends StatefulWidget {
   /// Start Date in case user wants to show past dates
@@ -75,7 +75,7 @@ class DatePicker extends StatefulWidget {
       this.startDate, {
         Key? key,
         this.width = 60,
-        this.height = 80,
+        this.height = 100,
         this.controller,
         this.monthTextStyle = defaultMonthTextStyle,
         this.dayTextStyle = defaultDayTextStyle,
