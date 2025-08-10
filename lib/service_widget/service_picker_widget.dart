@@ -9,6 +9,7 @@
 
 import 'dart:developer';
 import 'package:date_picker_timeline/date_picker_timeline.dart';
+import 'package:date_picker_timeline/extra/color.dart';
 import 'package:date_picker_timeline/gestures/tap.dart';
 import 'package:date_picker_timeline/utils.dart';
 import 'package:flutter/material.dart';
@@ -19,7 +20,9 @@ class ServiceWidget extends StatelessWidget {
   final DateTime date;
   final ServiceType service;
   final bool displayNotif;
-  final Color selectionColor;
+  final Color? selectionColor;
+  final Color? iconColor;
+  final Color borderColor;
   final bool selected;
   final ValueChanged<DateService> dateServiceCallback;
   final String? locale;
@@ -30,6 +33,8 @@ class ServiceWidget extends StatelessWidget {
     required this.selectionColor,
     required this.width,
     required this.selected,
+    required this.borderColor,
+    this.iconColor,
     required this.dateServiceCallback,
     this.locale,
     this.displayNotif = false,
@@ -45,8 +50,7 @@ class ServiceWidget extends StatelessWidget {
         width: width,
         height: width,
         decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(8.0)),
-          border: Border.all(color: Colors.grey, width: 1),
+          border: Border.all(color: borderColor, width: 0.5),
           color: selectionColor,
         ),
         child: Stack(
@@ -57,7 +61,7 @@ class ServiceWidget extends StatelessWidget {
                 Utils.getIconService(service),
                 width: 0.8 * width,
                 height: 0.8 * width,
-                color: selected ? Colors.white : null,
+                color: selected ? Colors.white : iconColor,
                 errorBuilder: (ctx, child, error){
                   debugPrint("error : ${error}");
 
@@ -73,10 +77,10 @@ class ServiceWidget extends StatelessWidget {
                 child: Container(
                   height: 5,
                   width: 5,
-                  margin: EdgeInsets.only(right: 3, top: 3),
+                  margin: EdgeInsets.only(right: 2, top: 2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.red
+                    color: AppColors.red
                   ),
                 ),
               )

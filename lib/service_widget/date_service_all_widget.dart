@@ -6,6 +6,7 @@
 /// github: https://github.com/iamvivekkaushik/
 /// ***
 
+import 'package:date_picker_timeline/extra/color.dart';
 import 'package:date_picker_timeline/gestures/tap.dart';
 import 'package:date_picker_timeline/utils.dart';
 import 'package:flutter/material.dart';
@@ -15,17 +16,17 @@ class DateServiceAllWidget extends StatelessWidget {
   final double? width;
   final DateTime date;
   final bool displayNotif;
-  final TextStyle? monthTextStyle, dayTextStyle, dateTextStyle;
+  final TextStyle? dateTextStyle;
   final Color selectionColor;
+  final Color borderColor;
   final DateSelectionCallback? onDateSelected;
   final String? locale;
 
   DateServiceAllWidget({
     required this.date,
-    required this.monthTextStyle,
-    required this.dayTextStyle,
     required this.dateTextStyle,
     required this.selectionColor,
+    required this.borderColor,
     this.width,
     this.onDateSelected,
     this.locale,
@@ -41,8 +42,8 @@ class DateServiceAllWidget extends StatelessWidget {
       child: Container(
         width: width,
         decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(8.0)),
-          border: Border.all(color: Colors.grey, width: 1),
+        //  borderRadius: const BorderRadius.all(Radius.circular(8.0)),
+          border: Border.all(color: borderColor, width: 0.5),
           color: selectionColor,
         ),
         child: Stack(
@@ -53,7 +54,7 @@ class DateServiceAllWidget extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 child: Text(
                   "${DateFormat("E", locale).format(date).toUpperCase()} ${date.day} ${DateFormat("MMM", locale).format(date).toUpperCase()}",
-                  style: dayTextStyle,
+                  style: dateTextStyle,
                 )
               ),
             ),
@@ -66,7 +67,7 @@ class DateServiceAllWidget extends StatelessWidget {
                   margin: const EdgeInsets.only(top: 4, right: 4),
                   decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Utils.red
+                      color: AppColors.red
                   ),
                 ),
               )

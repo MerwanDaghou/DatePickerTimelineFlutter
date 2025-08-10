@@ -5,6 +5,7 @@
 /// github: https://github.com/iamvivekkaushik/
 /// ***
 
+import 'package:date_picker_timeline/extra/color.dart';
 import 'package:date_picker_timeline/gestures/tap.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -62,7 +63,7 @@ class GregorianDateWidget extends StatelessWidget {
                         width: 5,
                         decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.red
+                            color: AppColors.red
                         ),
                       ),
                     )

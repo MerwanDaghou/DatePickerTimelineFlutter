@@ -38,14 +38,11 @@ class DateServicePicker extends StatefulWidget {
   /// Background color for the selector
   final Color selectionColor;
 
-  /// Text Color for the deactivated dates
-  final Color deactivatedColor;
+  /// Color for service icons
+  final Color? serviceIconColor;
 
-  /// TextStyle for Month Value
-  final TextStyle monthTextStyle;
-
-  /// TextStyle for day Value
-  final TextStyle dayTextStyle;
+  /// Color for service icons
+  final Color borderColor;
 
   /// TextStyle for the date Value
   final TextStyle dateTextStyle;
@@ -76,12 +73,11 @@ class DateServicePicker extends StatefulWidget {
         this.width = 140,
         this.height = 120,
         this.controller,
-        this.monthTextStyle = defaultMonthTextStyle,
-        this.dayTextStyle = defaultDayTextStyle,
-        this.dateTextStyle = defaultDateTextStyle,
+        this.dateTextStyle = defaultDayTextStyle,
         this.selectedTextColor = Colors.white,
         this.selectionColor = AppColors.defaultSelectionColor,
-        this.deactivatedColor = AppColors.defaultDeactivatedColor,
+        this.serviceIconColor,
+        this.borderColor = AppColors.defaultBorderColor,
         this.initialSelectedDateService,
         this.daysCount = 500,
         this.onDateServiceChange,
@@ -100,12 +96,7 @@ class _DateServicePickerState extends State<DateServicePicker> {
   late final int numService;
 
   late final TextStyle selectedDateStyle;
-  late final TextStyle selectedMonthStyle;
-  late final TextStyle selectedDayStyle;
 
-  late final TextStyle deactivatedDateStyle;
-  late final TextStyle deactivatedMonthStyle;
-  late final TextStyle deactivatedDayStyle;
 
   @override
   void initState() {
@@ -124,10 +115,6 @@ class _DateServicePickerState extends State<DateServicePicker> {
 
     this.selectedDateStyle =
         widget.dateTextStyle.copyWith(color: widget.selectedTextColor);
-    this.selectedMonthStyle =
-        widget.monthTextStyle.copyWith(color: widget.selectedTextColor);
-    this.selectedDayStyle =
-        widget.dayTextStyle.copyWith(color: widget.selectedTextColor);
 
   }
 
@@ -156,19 +143,14 @@ class _DateServicePickerState extends State<DateServicePicker> {
                 offset: Offset(- widget.width / (numService * 2), 0),
                 child: DateServiceAllWidget(
                   date: date,
-                  monthTextStyle: isSelected
-                      ? selectedMonthStyle
-                      : widget.monthTextStyle,
                   dateTextStyle: isSelected
                       ? selectedDateStyle
                       : widget.dateTextStyle,
-                  dayTextStyle: isSelected
-                      ? selectedDayStyle
-                      : widget.dayTextStyle,
                   width: widget.width,
                   locale: widget.locale,
                   selectionColor:
                   isSelected ? widget.selectionColor : Colors.transparent,
+                  borderColor: widget.borderColor,
                   displayNotif: displayNotif,
                   onDateSelected: (selectedDate) {
 
@@ -204,6 +186,8 @@ class _DateServicePickerState extends State<DateServicePicker> {
                     selected: isSelected,
                     selectionColor:
                     isSelected ? widget.selectionColor : Colors.transparent,
+                    borderColor: widget.borderColor,
+                    iconColor: widget.serviceIconColor,
                     displayNotif: displayNotif,
                     dateServiceCallback: (selectedDateService) {
                       debugPrint("pass here : $selectedDateService");
