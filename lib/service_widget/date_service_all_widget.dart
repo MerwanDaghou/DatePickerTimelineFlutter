@@ -51,7 +51,7 @@ class DateServiceAllWidget extends StatelessWidget {
           children: [
             Center(
               child: Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
                 child: Text(
                   "${DateFormat("E", locale).format(date).toUpperCase()} ${date.day} ${DateFormat("MMM", locale).format(date).toUpperCase()}",
                   style: dateTextStyle,
