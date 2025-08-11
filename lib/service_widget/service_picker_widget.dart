@@ -52,6 +52,7 @@ class ServiceWidget extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border.all(color: borderColor, width: 0.5),
           color: selectionColor,
+          borderRadius: const BorderRadius.all(Radius.circular(8.0)),
         ),
         child: Stack(
           children: [

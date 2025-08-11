@@ -42,7 +42,7 @@ class DateServiceAllWidget extends StatelessWidget {
       child: Container(
         width: width,
         decoration: BoxDecoration(
-        //  borderRadius: const BorderRadius.all(Radius.circular(8.0)),
+          borderRadius: const BorderRadius.all(Radius.circular(8.0)),
           border: Border.all(color: borderColor, width: 0.5),
           color: selectionColor,
         ),
