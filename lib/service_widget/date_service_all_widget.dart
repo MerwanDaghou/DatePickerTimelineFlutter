@@ -17,7 +17,7 @@ class DateServiceAllWidget extends StatelessWidget {
   final DateTime date;
   final bool displayNotif;
   final TextStyle? dateTextStyle;
-  final Color selectionColor;
+  final Color backgroundColor;
   final Color borderColor;
   final DateSelectionCallback? onDateSelected;
   final String? locale;
@@ -25,7 +25,7 @@ class DateServiceAllWidget extends StatelessWidget {
   DateServiceAllWidget({
     required this.date,
     required this.dateTextStyle,
-    required this.selectionColor,
+    required this.backgroundColor,
     required this.borderColor,
     this.width,
     this.onDateSelected,
@@ -44,7 +44,7 @@ class DateServiceAllWidget extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: const BorderRadius.all(Radius.circular(8.0)),
           border: Border.all(color: borderColor, width: 0.5),
-          color: selectionColor,
+          color: backgroundColor,
         ),
         child: Stack(
           alignment: Alignment.topRight,

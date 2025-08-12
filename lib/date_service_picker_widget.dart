@@ -38,6 +38,9 @@ class DateServicePicker extends StatefulWidget {
   /// Background color for the selector
   final Color selectionColor;
 
+  /// Background color for unselect items
+  final Color backgroundColor;
+
   /// Color for service icons
   final Color? serviceIconColor;
 
@@ -70,6 +73,7 @@ class DateServicePicker extends StatefulWidget {
       this.startDate, {
         Key? key,
         required this.pickerType,
+        required this.backgroundColor,
         this.width = 140,
         this.height = 120,
         this.controller,
@@ -148,8 +152,7 @@ class _DateServicePickerState extends State<DateServicePicker> {
                       : widget.dateTextStyle,
                   width: widget.width,
                   locale: widget.locale,
-                  selectionColor:
-                  isSelected ? widget.selectionColor : Colors.transparent,
+                  backgroundColor: isSelected ? widget.selectionColor : widget.backgroundColor,
                   borderColor: widget.borderColor,
                   displayNotif: displayNotif,
                   onDateSelected: (selectedDate) {
@@ -184,8 +187,7 @@ class _DateServicePickerState extends State<DateServicePicker> {
                     width: widget.width / numService,
                     locale: widget.locale,
                     selected: isSelected,
-                    selectionColor:
-                    isSelected ? widget.selectionColor : Colors.transparent,
+                    backgroundColor: isSelected ? widget.selectionColor : widget.backgroundColor,
                     borderColor: widget.borderColor,
                     iconColor: widget.serviceIconColor,
                     displayNotif: displayNotif,

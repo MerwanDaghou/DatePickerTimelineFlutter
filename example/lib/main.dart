@@ -57,6 +57,7 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
           DateServicePicker(
               DateTime.now(),
+              backgroundColor: Colors.black54,
               pickerType: DateServicePickerType.detailed,
               controller: _controller,
               initialSelectedDateService: _selectedValue,

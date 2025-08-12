@@ -20,7 +20,7 @@ class ServiceWidget extends StatelessWidget {
   final DateTime date;
   final ServiceType service;
   final bool displayNotif;
-  final Color? selectionColor;
+  final Color backgroundColor;
   final Color? iconColor;
   final Color borderColor;
   final bool selected;
@@ -30,7 +30,7 @@ class ServiceWidget extends StatelessWidget {
   ServiceWidget({
     required this.date,
     required this.service,
-    required this.selectionColor,
+    required this.backgroundColor,
     required this.width,
     required this.selected,
     required this.borderColor,
@@ -51,7 +51,7 @@ class ServiceWidget extends StatelessWidget {
         height: width,
         decoration: BoxDecoration(
           border: Border.all(color: borderColor, width: 0.5),
-          color: selectionColor,
+          color: backgroundColor,
           borderRadius: const BorderRadius.all(Radius.circular(8.0)),
         ),
         child: Stack(
@@ -67,7 +67,8 @@ class ServiceWidget extends StatelessWidget {
                   debugPrint("error : ${error}");
 
                   return Icon(
-                    Icons.error
+                    Icons.error,
+                    size: 14,
                   );
                 },
               )
