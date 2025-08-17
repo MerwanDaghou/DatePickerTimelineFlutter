@@ -139,7 +139,7 @@ class _DateServicePickerState extends State<DateServicePicker> {
               ? DateUtils.isSameDay(date, _currentDateService!.date)
               : false;
 
-          bool displayNotif = widget.datesOnNotification == null ? false : widget.datesOnNotification!.where((element) => DateUtils.isSameDay(element.date, date) && element.service == ServiceType.all).isNotEmpty;
+          bool displayNotif = widget.datesOnNotification == null ? false : widget.datesOnNotification!.where((element) => DateUtils.isSameDay(element.date, date)).isNotEmpty;
 
           return Column(
             children: [
@@ -192,7 +192,6 @@ class _DateServicePickerState extends State<DateServicePicker> {
                     iconColor: widget.serviceIconColor,
                     displayNotif: displayNotif,
                     dateServiceCallback: (selectedDateService) {
-                      debugPrint("pass here : $selectedDateService");
                       // A date is selected
                       if(widget.onDateServiceChange != null){
                         widget.onDateServiceChange!(selectedDateService);

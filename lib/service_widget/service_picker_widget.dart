@@ -79,7 +79,7 @@ class ServiceWidget extends StatelessWidget {
                 child: Container(
                   height: 5,
                   width: 5,
-                  margin: EdgeInsets.only(right: 2, top: 2),
+                  margin: EdgeInsets.only(right: 4, top: 4),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: AppColors.red
@@ -90,7 +90,6 @@ class ServiceWidget extends StatelessWidget {
         ),
       ),
       onTap: () {
-        debugPrint("tap on service");
         dateServiceCallback(DateService(date: date, service: service));
       },
     );
