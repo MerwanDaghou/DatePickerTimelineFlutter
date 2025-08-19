@@ -101,6 +101,7 @@ class _DateServicePickerState extends State<DateServicePicker> {
 
   late final TextStyle selectedDateStyle;
 
+  late final ScrollController scrollController;
 
   @override
   void initState() {
@@ -120,6 +121,20 @@ class _DateServicePickerState extends State<DateServicePicker> {
     this.selectedDateStyle =
         widget.dateTextStyle.copyWith(color: widget.selectedTextColor);
 
+    scrollController = ScrollController(initialScrollOffset: getInitialOffset());
+  }
+
+  double getInitialOffset(){
+    if(_currentDateService != null){
+      DateTime _currentDate = DateTime(_currentDateService!.date.year, _currentDateService!.date.month, _currentDateService!.date.day);
+      DateTime _firstDate = DateTime(widget.startDate.year, widget.startDate.month, widget.startDate.day);
+
+      int dateDiff = _currentDate.difference(_firstDate).inDays;
+      if(dateDiff > 0){
+        return dateDiff * widget.width;
+      }
+    }
+    return 0;
   }
 
   @override
@@ -128,6 +143,7 @@ class _DateServicePickerState extends State<DateServicePicker> {
       height: widget.height,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
+        controller: scrollController,
         padding: EdgeInsets.only(left: widget.width / (numService * 2)),
         itemCount: widget.daysCount,
         itemBuilder: (context, index) {
