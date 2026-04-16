@@ -34,7 +34,7 @@ class DateServicePicker extends StatefulWidget {
         required this.pickerType,
         required this.backgroundColor,
         this.width = 140,
-        this.height = 120,
+        this.height = 90,
         this.controller,
         this.dateTextStyle = defaultDayTextStyle,
         this.selectedTextColor = Colors.white,
@@ -65,7 +65,7 @@ class _DateServicePickerState extends State<DateServicePicker> {
 
   // Largeur totale d'un slot = bloc + espace pour que le night du bloc
   // précédent puisse déborder sur ce slot
-  double get slotWidth => widget.width + (nightOverflowWidth - widget.width / numDayServices);
+  double get slotWidth =>  widget.width + nightOverflowWidth / 2;
 
   @override
   void initState() {
@@ -299,7 +299,7 @@ class _DateBlock extends StatelessWidget {
             flex: 4,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final serviceWidth = constraints.maxWidth / (services.length + 1);
+                final serviceWidth = (constraints.maxWidth - nightOverflowWidth / 2) / (services.length + 1);
                 final nightSel = isServiceSelected(ServiceType.night);
 
                 return Stack(
@@ -308,6 +308,7 @@ class _DateBlock extends StatelessWidget {
                     // Services normaux
                     Row(
                       children: [
+                        SizedBox(width: nightOverflowWidth / 2),
                         ...services.map((service) {
                           final sel = isServiceSelected(service);
                           final notif = hasServiceNotif(service);
