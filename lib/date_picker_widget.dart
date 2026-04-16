@@ -71,7 +71,7 @@ class _DatePickerState extends State<DatePicker> {
   late final ScrollController _scrollController;
 
   // La lune déborde de cette largeur sur le bloc suivant
-  double get nightOverflowWidth => widget.width * 0.38;
+  double get nightOverflowWidth => widget.width * 0.3;
 
   // Largeur totale d'un slot = bloc + moitié du débordement
   double get slotWidth => widget.width + nightOverflowWidth / 2;
