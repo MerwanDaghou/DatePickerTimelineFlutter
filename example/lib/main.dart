@@ -25,9 +25,11 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  DateServicePickerController _controller = DateServicePickerController();
+  DateServicePickerController _serviceController = DateServicePickerController();
+  DatePickerController _datePickerController = DatePickerController();
 
-  DateService _selectedValue = DateService(date: DateTime.now(), service: ServiceType.all);
+  DateService _selectedService = DateService(date: DateTime.now(), service: ServiceType.all);
+  DateTime _selectedDate = DateTime.now();
 
 
   @override
@@ -51,7 +53,7 @@ class _MyHomePageState extends State<MyHomePage> {
               Padding(
                 padding: EdgeInsets.all(10),
               ),
-              Text("${_selectedValue.date}\n${_selectedValue.service}", textAlign: TextAlign.center,),
+              Text("${_selectedService.date}\n${_selectedService.service}", textAlign: TextAlign.center,),
               Padding(
                 padding: EdgeInsets.all(20),
               ),
@@ -59,8 +61,8 @@ class _MyHomePageState extends State<MyHomePage> {
               DateTime.now(),
               backgroundColor: Colors.black54,
               pickerType: DateServicePickerType.detailed,
-              controller: _controller,
-              initialSelectedDateService: _selectedValue,
+              controller: _serviceController,
+              initialSelectedDateService: _selectedService,
               selectionColor: Color(0xFFC70EBC),
               selectedTextColor: Colors.white,
               daysCount: 21,
@@ -68,18 +70,17 @@ class _MyHomePageState extends State<MyHomePage> {
               onDateServiceChange: (dateService) {
                 // New date selected
                 setState(() {
-                  _selectedValue = dateService;
+                  _selectedService = dateService;
                 });
                 debugPrint("new selected value : ${dateService.date} - ${dateService.service}");
               },
-            )
-              /*
+            ),
+
               Container(
                 child: DatePicker(
                   DateTime.now(),
-                  width: 60,
                   height: 90,
-                  controller: _controller,
+                  controller: _datePickerController,
                   initialSelectedDate: DateTime.now(),
                   selectionColor: Colors.black,
                   selectedTextColor: Colors.white,
@@ -91,11 +92,11 @@ class _MyHomePageState extends State<MyHomePage> {
                   onDateChange: (date) {
                     // New date selected
                     setState(() {
-                      _selectedValue = date;
+                      _selectedDate = date;
                     });
                   },
                 ),
-              ),*/
+              ),
             ],
           ),
         ));

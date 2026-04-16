@@ -1,176 +1,141 @@
-import 'package:date_picker_timeline/gregorian_date/gregorian_date_widget.dart';
 import 'package:date_picker_timeline/extra/color.dart';
 import 'package:date_picker_timeline/extra/style.dart';
 import 'package:date_picker_timeline/gestures/tap.dart';
-import 'package:date_picker_timeline/persian_date/persian_date.dart';
-import 'package:date_picker_timeline/persian_date/persian_date_widget.dart';
+import 'package:date_picker_timeline/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
-
+import 'package:intl/intl.dart';
+import 'date_picker_timeline.dart';
 import 'date_type.dart';
+import 'dart:ui' as ui;
 
 class DatePicker extends StatefulWidget {
-  /// Start Date in case user wants to show past dates
-  /// If not provided calendar will start from the initialSelectedDate
   final DateTime startDate;
-
-  /// Width of the selector
   final double width;
-
-  /// Height of the selector
   final double height;
-
-  /// DatePicker Controller
   final DatePickerController? controller;
-
-  /// Text color for the selected Date
   final Color selectedTextColor;
-
-  /// Background color for the selector
   final Color selectionColor;
-
-  /// Text Color for the deactivated dates
   final Color deactivatedColor;
-
-  /// TextStyle for Month Value
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color? serviceIconColor;
   final TextStyle monthTextStyle;
-
-  /// TextStyle for day Value
   final TextStyle dayTextStyle;
-
-  /// TextStyle for the date Value
   final TextStyle dateTextStyle;
-
-  /// Current Selected Date
-  final DateTime? /*?*/ initialSelectedDate;
-
-  /// Contains the list of inactive dates.
-  /// All the dates defined in this List will be deactivated
+  final DateTime? initialSelectedDate;
   final List<DateTime>? inactiveDates;
-
-  /// Contains the list of active dates.
-  /// Only the dates in this list will be activated.
   final List<DateTime>? activeDates;
-
-  /// Callback function for when a different date is selected
   final DateChangeListener? onDateChange;
-
-  /// Max limit up to which the dates are shown.
-  /// Days are counted from the startDate
   final int daysCount;
-
-  /// Calendar type
-  final CalendarType calendarType;
-
-  /// Directionality
-  final TextDirection? directionality;
-
-  /// Locale for the calendar default: en_us
+  final ui.TextDirection? directionality;
   final String locale;
-
-  /// List of datetime where display notification
   final List<DateTime>? datesOnNotification;
 
   DatePicker(
       this.startDate, {
         Key? key,
-        this.width = 60,
-        this.height = 100,
+        this.width = 100,
+        this.height = 90,
         this.controller,
         this.monthTextStyle = defaultMonthTextStyle,
         this.dayTextStyle = defaultDayTextStyle,
-        this.dateTextStyle = defaultDateTextStyle,
+        this.dateTextStyle = defaultDayTextStyle,
         this.selectedTextColor = Colors.white,
         this.selectionColor = AppColors.defaultSelectionColor,
         this.deactivatedColor = AppColors.defaultDeactivatedColor,
+        this.backgroundColor = Colors.transparent,
+        this.borderColor = AppColors.defaultBorderColor,
+        this.serviceIconColor,
         this.initialSelectedDate,
         this.activeDates,
         this.inactiveDates,
         this.daysCount = 500,
         this.onDateChange,
         this.locale = "en_US",
-        this.calendarType = CalendarType.gregorianDate,
         this.datesOnNotification,
         this.directionality,
       }) : assert(
   activeDates == null || inactiveDates == null,
-  "Can't "
-      "provide both activated and deactivated dates List at the same time.");
+  "Can't provide both activated and deactivated dates List at the same time.",
+  );
 
   @override
-  State<StatefulWidget> createState() => new _DatePickerState();
+  State<StatefulWidget> createState() => _DatePickerState();
 }
 
 class _DatePickerState extends State<DatePicker> {
   DateTime? _currentDate;
-
-  ScrollController _controller = ScrollController();
-
   late final TextStyle selectedDateStyle;
-  late final TextStyle selectedMonthStyle;
-  late final TextStyle selectedDayStyle;
-
   late final TextStyle deactivatedDateStyle;
-  late final TextStyle deactivatedMonthStyle;
-  late final TextStyle deactivatedDayStyle;
+  late final ScrollController _scrollController;
+
+  // La lune déborde de cette largeur sur le bloc suivant
+  double get nightOverflowWidth => widget.width * 0.38;
+
+  // Largeur totale d'un slot = bloc + moitié du débordement
+  double get slotWidth => widget.width + nightOverflowWidth / 2;
 
   @override
   void initState() {
-    // Init the calendar locale
-    initializeDateFormatting(widget.locale, null);
-
-    // Set initial Values
-    _currentDate = widget.initialSelectedDate;
-
-    widget.controller?.setDatePickerState(this);
-
-    this.selectedDateStyle =
-        widget.dateTextStyle.copyWith(color: widget.selectedTextColor);
-    this.selectedMonthStyle =
-        widget.monthTextStyle.copyWith(color: widget.selectedTextColor);
-    this.selectedDayStyle =
-        widget.dayTextStyle.copyWith(color: widget.selectedTextColor);
-
-    this.deactivatedDateStyle =
-        widget.dateTextStyle.copyWith(color: widget.deactivatedColor);
-    this.deactivatedMonthStyle =
-        widget.monthTextStyle.copyWith(color: widget.deactivatedColor);
-    this.deactivatedDayStyle =
-        widget.dayTextStyle.copyWith(color: widget.deactivatedColor);
-
     super.initState();
+    initializeDateFormatting(widget.locale, null);
+    _currentDate = widget.initialSelectedDate;
+    widget.controller?.setDatePickerState(this);
+    selectedDateStyle =
+        widget.dateTextStyle.copyWith(color: widget.selectedTextColor);
+    deactivatedDateStyle =
+        widget.dateTextStyle.copyWith(color: widget.deactivatedColor);
+    _scrollController =
+        ScrollController(initialScrollOffset: _getInitialOffset());
+  }
+
+  double _getInitialOffset() {
+    if (_currentDate != null) {
+      final current = DateTime(
+        _currentDate!.year,
+        _currentDate!.month,
+        _currentDate!.day,
+      );
+      final first = DateTime(
+        widget.startDate.year,
+        widget.startDate.month,
+        widget.startDate.day,
+      );
+      final diff = current.difference(first).inDays;
+      if (diff > 0) return diff * slotWidth;
+    }
+    return 0;
+  }
+
+  bool _hasNotif(DateTime date) {
+    if (widget.datesOnNotification == null) return false;
+    return widget.datesOnNotification!
+        .any((d) => DateUtils.isSameDay(d, date));
+  }
+
+  void _onDateSelected(DateTime date) {
+    widget.onDateChange?.call(date);
+    setState(() => _currentDate = date);
   }
 
   @override
   Widget build(BuildContext context) {
     return Directionality(
-      textDirection: (widget.directionality) ?? ((widget.calendarType == CalendarType.persianDate)
-          ? TextDirection.rtl
-          : TextDirection.ltr),
-      child: Container(
+      textDirection: widget.directionality ?? ui.TextDirection.ltr,
+      child: SizedBox(
         height: widget.height,
         child: ListView.builder(
-          itemCount: widget.daysCount,
           scrollDirection: Axis.horizontal,
-          controller: _controller,
+          controller: _scrollController,
+          clipBehavior: Clip.none,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          itemCount: widget.daysCount,
           itemBuilder: (context, index) {
-            // get the date object based on the index position
-            // if widget.startDate is null then use the initialDateValue
-            DateTime date;
-            DateTime _date = widget.startDate.add(Duration(days: index));
-            switch (widget.calendarType) {
-              case CalendarType.persianDate:
-                date = PersianDate.toJalali(_date.year, _date.month, _date.day);
-                break;
-              case CalendarType.gregorianDate:
-                date = DateTime(_date.year, _date.month, _date.day);
-                break;
-              default:
-                date = DateTime(_date.year, _date.month, _date.day);
-            }
-            bool isDeactivated = false;
+            final _d = widget.startDate.add(Duration(days: index));
+            final date = DateTime(_d.year, _d.month, _d.day);
 
-            // check if this date needs to be deactivated for only DeactivatedDates
+            bool isDeactivated = false;
             if (widget.inactiveDates != null) {
               for (DateTime inactiveDate in widget.inactiveDates!) {
                 if (DateUtils.isSameDay(date, inactiveDate)) {
@@ -179,8 +144,6 @@ class _DatePickerState extends State<DatePicker> {
                 }
               }
             }
-
-            // check if this date needs to be deactivated for only ActivatedDates
             if (widget.activeDates != null) {
               isDeactivated = true;
               for (DateTime activateDate in widget.activeDates!) {
@@ -191,86 +154,35 @@ class _DatePickerState extends State<DatePicker> {
               }
             }
 
-            // Check if this date is the one that is currently selected
-            bool isSelected = _currentDate != null
+            final isSelected = _currentDate != null
                 ? DateUtils.isSameDay(date, _currentDate!)
                 : false;
 
-            // Check if needs to display notification on the day;
-            bool displayNotif = widget.datesOnNotification == null ? false : widget.datesOnNotification!.contains(date);
+            final displayNotif = _hasNotif(date);
 
-            // Return the Date Widget
-            switch (widget.calendarType) {
-              case CalendarType.gregorianDate:
-                return GregorianDateWidget(
-                  date: date,
-                  monthTextStyle: isDeactivated
-                      ? deactivatedMonthStyle
-                      : isSelected
-                      ? selectedMonthStyle
-                      : widget.monthTextStyle,
-                  dateTextStyle: isDeactivated
-                      ? deactivatedDateStyle
-                      : isSelected
-                      ? selectedDateStyle
-                      : widget.dateTextStyle,
-                  dayTextStyle: isDeactivated
-                      ? deactivatedDayStyle
-                      : isSelected
-                      ? selectedDayStyle
-                      : widget.dayTextStyle,
-                  width: widget.width,
-                  locale: widget.locale,
-                  selectionColor:
-                  isSelected ? widget.selectionColor : Colors.transparent,
-                  displayNotif: displayNotif,
-                  onDateSelected: (selectedDate) {
-                    // Don't notify listener if date is deactivated
-                    if (isDeactivated) return;
+            final textStyle = isDeactivated
+                ? deactivatedDateStyle
+                : isSelected
+                ? selectedDateStyle
+                : widget.dateTextStyle;
 
-                    // A date is selected
-                    widget.onDateChange?.call(selectedDate);
-
-                    setState(() {
-                      _currentDate = selectedDate;
-                    });
-                  },
-                );
-              case CalendarType.persianDate:
-                return PersianDateWidget(
-                  date: date,
-                  monthTextStyle: isDeactivated
-                      ? deactivatedMonthStyle
-                      : isSelected
-                      ? selectedMonthStyle
-                      : widget.monthTextStyle,
-                  dateTextStyle: isDeactivated
-                      ? deactivatedDateStyle
-                      : isSelected
-                      ? selectedDateStyle
-                      : widget.dateTextStyle,
-                  dayTextStyle: isDeactivated
-                      ? deactivatedDayStyle
-                      : isSelected
-                      ? selectedDayStyle
-                      : widget.dayTextStyle,
-                  width: widget.width,
-                  locale: widget.locale,
-                  selectionColor:
-                  isSelected ? widget.selectionColor : Colors.transparent,
-                  onDateSelected: (selectedDate) {
-                    // Don't notify listener if date is deactivated
-                    if (isDeactivated) return;
-
-                    // A date is selected
-                    widget.onDateChange?.call(selectedDate);
-
-                    setState(() {
-                      _currentDate = selectedDate;
-                    });
-                  },
-                );
-            }
+            return _DateBlock(
+              date: date,
+              isSelected: isSelected,
+              isDeactivated: isDeactivated,
+              dateTextStyle: textStyle,
+              selectionColor: widget.selectionColor,
+              backgroundColor: widget.backgroundColor,
+              borderColor: widget.borderColor,
+              serviceIconColor: widget.serviceIconColor,
+              displayNotif: displayNotif,
+              locale: widget.locale,
+              slotWidth: slotWidth,
+              nightOverflowWidth: nightOverflowWidth,
+              onTap: () {
+                if (!isDeactivated) _onDateSelected(date);
+              },
+            );
           },
         ),
       ),
@@ -278,6 +190,206 @@ class _DatePickerState extends State<DatePicker> {
   }
 }
 
+// ================================================================
+// _DateBlock
+// ================================================================
+class _DateBlock extends StatelessWidget {
+  final DateTime date;
+  final bool isSelected;
+  final bool isDeactivated;
+  final TextStyle dateTextStyle;
+  final Color selectionColor;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color? serviceIconColor;
+  final bool displayNotif;
+  final String locale;
+  final double slotWidth;
+  final double nightOverflowWidth;
+  final VoidCallback onTap;
+
+  const _DateBlock({
+    required this.date,
+    required this.isSelected,
+    required this.isDeactivated,
+    required this.dateTextStyle,
+    required this.selectionColor,
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.serviceIconColor,
+    required this.displayNotif,
+    required this.locale,
+    required this.slotWidth,
+    required this.nightOverflowWidth,
+    required this.onTap,
+  });
+
+  // Largeur du bloc principal (sans le débordement)
+  double get blockWidth => slotWidth - nightOverflowWidth / 2;
+
+  @override
+  Widget build(BuildContext context) {
+    // Largeur de la lune (déborde à droite)
+    final nightWidth = nightOverflowWidth * 1.4;
+
+    return SizedBox(
+      width: slotWidth,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // ── Bloc principal ──────────────────────────────────
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onTap,
+              child: Container(
+                width: blockWidth,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected ? selectionColor : borderColor,
+                    width: isSelected ? 1.5 : 0.5,
+                  ),
+                  color: isSelected
+                      ? selectionColor.withOpacity(0.12)
+                      : backgroundColor,
+                ),
+                child: Column(
+                  children: [
+                    // ── Header date ────────────────────────────
+                    Expanded(
+                      flex: 4,
+                      child: Stack(
+                        children: [
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 4),
+                              child: Text(
+                                "${DateFormat("E", locale).format(date).toUpperCase()} "
+                                    "${date.day} "
+                                    "${DateFormat("MMM", locale).format(date).toUpperCase()}",
+                                style: dateTextStyle,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                          if (displayNotif)
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: Container(
+                                height: 6,
+                                width: 6,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.red,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    // ── Séparateur ─────────────────────────────
+                    Container(
+                      height: 0.5,
+                      margin: const EdgeInsets.symmetric(horizontal: 10),
+                      color: isSelected
+                          ? selectionColor.withOpacity(0.4)
+                          : borderColor.withOpacity(0.4),
+                    ),
+
+                    // ── Bas : soleil + placeholder lune ────────
+                    Expanded(
+                      flex: 3,
+                      child: Row(
+                        children: [
+                          // Soleil
+                          Expanded(
+                            child: Center(
+                              child: Image.asset(
+                                Utils.getIconService(ServiceType.noon),
+                                width: 18,
+                                height: 18,
+                                color: isSelected
+                                    ? Colors.white
+                                    : serviceIconColor,
+                                errorBuilder: (_, __, ___) => Icon(
+                                  Icons.wb_sunny_outlined,
+                                  size: 16,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : serviceIconColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Placeholder pour la lune
+                          SizedBox(width: nightOverflowWidth / 2),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Lune — déborde à droite sur le slot suivant ────
+            Positioned(
+              right: -nightOverflowWidth / 2,
+              bottom: 3,
+              top: null,
+              height: 30,
+              width: nightWidth,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onTap, // même action : sélectionne le jour
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(8),
+                      bottomLeft: Radius.circular(8),
+                      topRight: Radius.circular(12),
+                      bottomRight: Radius.circular(12),
+                    ),
+                    color: isSelected
+                        ? selectionColor.withOpacity(0.25)
+                        : backgroundColor,
+                    border: Border.all(
+                      color: isSelected ? selectionColor : borderColor,
+                      width: isSelected ? 1.5 : 0.5,
+                    ),
+                  ),
+                  child: Center(
+                    child: Image.asset(
+                      Utils.getIconService(ServiceType.night),
+                      width: 18,
+                      height: 18,
+                      color: isSelected ? Colors.white : serviceIconColor,
+                      errorBuilder: (_, __, ___) => Icon(
+                        Icons.nightlight_round,
+                        size: 16,
+                        color: isSelected ? Colors.white : serviceIconColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ================================================================
+// Controller
+// ================================================================
 class DatePickerController {
   _DatePickerState? _datePickerState;
 
@@ -288,64 +400,64 @@ class DatePickerController {
   void jumpToSelection() {
     assert(_datePickerState != null,
     'DatePickerController is not attached to any DatePicker View.');
-
-    // jump to the current Date
-    _datePickerState!._controller
+    _datePickerState!._scrollController
         .jumpTo(_calculateDateOffset(_datePickerState!._currentDate!));
   }
 
-  /// This function will animate the Timeline to the currently selected Date
-  void animateToSelection(
-      {duration = const Duration(milliseconds: 500), curve = Curves.linear}) {
+  void animateToSelection({
+    duration = const Duration(milliseconds: 500),
+    curve = Curves.linear,
+  }) {
     assert(_datePickerState != null,
     'DatePickerController is not attached to any DatePicker View.');
-
-    // animate to the current date
-    _datePickerState!._controller.animateTo(
-        _calculateDateOffset(_datePickerState!._currentDate!),
-        duration: duration,
-        curve: curve);
+    _datePickerState!._scrollController.animateTo(
+      _calculateDateOffset(_datePickerState!._currentDate!),
+      duration: duration,
+      curve: curve,
+    );
   }
 
-  /// This function will animate to any date that is passed as an argument
-  /// In case a date is out of range nothing will happen
-  void animateToDate(DateTime date,
-      {duration = const Duration(milliseconds: 500), curve = Curves.linear}) {
+  void animateToDate(
+      DateTime date, {
+        duration = const Duration(milliseconds: 500),
+        curve = Curves.linear,
+      }) {
     assert(_datePickerState != null,
     'DatePickerController is not attached to any DatePicker View.');
-
-    _datePickerState!._controller.animateTo(_calculateDateOffset(date),
-        duration: duration, curve: curve);
+    _datePickerState!._scrollController.animateTo(
+      _calculateDateOffset(date),
+      duration: duration,
+      curve: curve,
+    );
   }
 
-  /// This function will animate to any date that is passed as an argument
-  /// this will also set that date as the current selected date
-  void setDateAndAnimate(DateTime date,
-      {duration = const Duration(milliseconds: 500), curve = Curves.linear}) {
+  void setDateAndAnimate(
+      DateTime date, {
+        duration = const Duration(milliseconds: 500),
+        curve = Curves.linear,
+      }) {
     assert(_datePickerState != null,
     'DatePickerController is not attached to any DatePicker View.');
-
-    _datePickerState!._controller.animateTo(_calculateDateOffset(date),
-        duration: duration, curve: curve);
-
+    _datePickerState!._scrollController.animateTo(
+      _calculateDateOffset(date),
+      duration: duration,
+      curve: curve,
+    );
     if (date.compareTo(_datePickerState!.widget.startDate) >= 0 &&
         date.compareTo(_datePickerState!.widget.startDate
             .add(Duration(days: _datePickerState!.widget.daysCount))) <=
             0) {
-      // date is in the range
       _datePickerState!._currentDate = date;
     }
   }
 
-  /// Calculate the number of pixels that needs to be scrolled to go to the
-  /// date provided in the argument
   double _calculateDateOffset(DateTime date) {
-    final startDate = new DateTime(
-        _datePickerState!.widget.startDate.year,
-        _datePickerState!.widget.startDate.month,
-        _datePickerState!.widget.startDate.day);
-
+    final startDate = DateTime(
+      _datePickerState!.widget.startDate.year,
+      _datePickerState!.widget.startDate.month,
+      _datePickerState!.widget.startDate.day,
+    );
     int offset = date.difference(startDate).inDays;
-    return (offset * _datePickerState!.widget.width) + (offset * 6);
+    return offset * _datePickerState!.slotWidth;
   }
 }
