@@ -1,72 +1,31 @@
-import 'package:date_picker_timeline/service_widget/date_service_all_widget.dart';
-import 'package:date_picker_timeline/gregorian_date/gregorian_date_widget.dart';
 import 'package:date_picker_timeline/extra/color.dart';
 import 'package:date_picker_timeline/extra/style.dart';
 import 'package:date_picker_timeline/gestures/tap.dart';
-import 'package:date_picker_timeline/persian_date/persian_date.dart';
-import 'package:date_picker_timeline/persian_date/persian_date_widget.dart';
-import 'package:date_picker_timeline/service_widget/service_picker_widget.dart';
 import 'package:date_picker_timeline/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'date_type.dart';
 
-enum DateServicePickerType {
-  detailed,
-  grouped
-}
+enum DateServicePickerType { detailed, grouped }
 
 class DateServicePicker extends StatefulWidget {
-  /// Start Date in case user wants to show past dates
-  /// If not provided calendar will start from the initialSelectedDate
   final DateTime startDate;
-
   final DateServicePickerType pickerType;
-
-  /// Width of the selector
   final double width;
-
-  /// Height of the selector
   final double height;
-
-  /// DateServicePicker Controller
   final DateServicePickerController? controller;
-
-  /// Text color for the selected Date
   final Color selectedTextColor;
-
-  /// Background color for the selector
   final Color selectionColor;
-
-  /// Background color for unselect items
   final Color backgroundColor;
-
-  /// Color for service icons
   final Color? serviceIconColor;
-
-  /// Color for service icons
   final Color borderColor;
-
-  /// TextStyle for the date Value
   final TextStyle dateTextStyle;
-
-  /// Current Selected Date
-  final DateService? /*?*/ initialSelectedDateService;
-
-  /// Callback function for when a different date is selected
+  final DateService? initialSelectedDateService;
   final ValueChanged<DateService>? onDateServiceChange;
-
-  /// Max limit up to which the dates are shown.
-  /// Days are counted from the startDate
   final int daysCount;
-
-  /// Directionality
   final TextDirection? directionality;
-
-  /// Locale for the calendar default: en_us
   final String locale;
-
-  /// List of datetime where display notification
   final List<DateService>? datesOnNotification;
 
   DateServicePicker(
@@ -91,50 +50,88 @@ class DateServicePicker extends StatefulWidget {
       });
 
   @override
-  State<StatefulWidget> createState() => new _DateServicePickerState();
+  State<StatefulWidget> createState() => _DateServicePickerState();
 }
 
 class _DateServicePickerState extends State<DateServicePicker> {
   DateService? _currentDateService;
-
-  late final int numService;
-
+  late final int numDayServices;
   late final TextStyle selectedDateStyle;
-
   late final ScrollController scrollController;
+
+  // Le night déborde de cette largeur sur le bloc suivant
+  double get nightOverflowWidth =>
+      (widget.width / numDayServices) + 18.0;
+
+  // Largeur totale d'un slot = bloc + espace pour que le night du bloc
+  // précédent puisse déborder sur ce slot
+  double get slotWidth => widget.width + (nightOverflowWidth - widget.width / numDayServices);
 
   @override
   void initState() {
     super.initState();
 
-    // Init number of service
-    numService = widget.pickerType == DateServicePickerType.detailed ? 5 : 4;
+    // detailed = 5 services → 4 sous la date + night flottant
+    // grouped  = 4 services → 3 sous la date + night flottant
+    numDayServices =
+    widget.pickerType == DateServicePickerType.detailed ? 4 : 3;
 
-    // Init the calendar locale
     initializeDateFormatting(widget.locale, null);
-
-    // Set initial Values
     _currentDateService = widget.initialSelectedDateService;
-
     widget.controller?.setDateServicePickerState(this);
-
-    this.selectedDateStyle =
+    selectedDateStyle =
         widget.dateTextStyle.copyWith(color: widget.selectedTextColor);
-
-    scrollController = ScrollController(initialScrollOffset: getInitialOffset());
+    scrollController =
+        ScrollController(initialScrollOffset: _getInitialOffset());
   }
 
-  double getInitialOffset(){
-    if(_currentDateService != null){
-      DateTime _currentDate = DateTime(_currentDateService!.date.year, _currentDateService!.date.month, _currentDateService!.date.day);
-      DateTime _firstDate = DateTime(widget.startDate.year, widget.startDate.month, widget.startDate.day);
-
-      int dateDiff = _currentDate.difference(_firstDate).inDays;
-      if(dateDiff > 0){
-        return dateDiff * widget.width;
-      }
+  double _getInitialOffset() {
+    if (_currentDateService != null) {
+      final current = DateTime(
+        _currentDateService!.date.year,
+        _currentDateService!.date.month,
+        _currentDateService!.date.day,
+      );
+      final first = DateTime(
+        widget.startDate.year,
+        widget.startDate.month,
+        widget.startDate.day,
+      );
+      final diff = current.difference(first).inDays;
+      if (diff > 0) return diff * slotWidth;
     }
     return 0;
+  }
+
+  bool _isDateSelected(DateTime date) =>
+      _currentDateService != null &&
+          DateUtils.isSameDay(date, _currentDateService!.date);
+
+  bool _isServiceSelected(DateTime date, ServiceType service) =>
+      _currentDateService != null &&
+          Utils.isSameDateService(
+            dateService: DateService(date: date, service: service),
+            dateServiceSelected: _currentDateService!,
+          );
+
+  bool _hasNotif(DateTime date, {ServiceType? service}) {
+    if (widget.datesOnNotification == null) return false;
+    return widget.datesOnNotification!.any((e) {
+      if (!DateUtils.isSameDay(e.date, date)) return false;
+      if (service != null) return e.service == service;
+      return true;
+    });
+  }
+
+  void _onDateSelected(DateTime date) {
+    final ds = DateService(date: date, service: ServiceType.all);
+    widget.onDateServiceChange?.call(ds);
+    setState(() => _currentDateService = ds);
+  }
+
+  void _onServiceSelected(DateService ds) {
+    widget.onDateServiceChange?.call(ds);
+    setState(() => _currentDateService = ds);
   }
 
   @override
@@ -144,90 +141,293 @@ class _DateServicePickerState extends State<DateServicePicker> {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         controller: scrollController,
-        padding: EdgeInsets.only(left: widget.width / (numService * 2)),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         itemCount: widget.daysCount,
         itemBuilder: (context, index) {
-          DateTime date;
-          DateTime _date = widget.startDate.add(Duration(days: index));
-          date = DateTime(_date.year, _date.month, _date.day);
+          final _d = widget.startDate.add(Duration(days: index));
+          final date = DateTime(_d.year, _d.month, _d.day);
+          final isDateSel = _isDateSelected(date);
 
-          bool isSelected = _currentDateService != null
-              ? DateUtils.isSameDay(date, _currentDateService!.date)
-              : false;
+          // Services du jour SANS night (les n-1 premiers)
+          final dayServices = List.generate(numDayServices, (i) {
+            return Utils.getServiceFromIndex(
+              pickerType: widget.pickerType,
+              index: i,
+            );
+          });
 
-          bool displayNotif = widget.datesOnNotification == null ? false : widget.datesOnNotification!.where((element) => DateUtils.isSameDay(element.date, date)).isNotEmpty;
-
-          return Column(
-            children: [
-              Transform.translate(
-                offset: Offset(- widget.width / (numService * 2), 0),
-                child: DateServiceAllWidget(
-                  date: date,
-                  dateTextStyle: isSelected
-                      ? selectedDateStyle
-                      : widget.dateTextStyle,
-                  width: widget.width,
-                  locale: widget.locale,
-                  backgroundColor: isSelected ? widget.selectionColor : widget.backgroundColor,
-                  borderColor: widget.borderColor,
-                  displayNotif: displayNotif,
-                  onDateSelected: (selectedDate) {
-
-                    // A date is selected
-                    if(widget.onDateServiceChange != null){
-                      widget.onDateServiceChange!(DateService(date: selectedDate, service: ServiceType.all));
-                    }
-
-                    setState(() {
-                      _currentDateService = DateService(date: date, service: ServiceType.all);
-                    });
-                  },
+          return SizedBox(
+            width: slotWidth,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+              child: _DateBlock(
+                date: date,
+                isSelected: isDateSel,
+                dateTextStyle:
+                isDateSel ? selectedDateStyle : widget.dateTextStyle,
+                selectionColor: widget.selectionColor,
+                backgroundColor: widget.backgroundColor,
+                borderColor: widget.borderColor,
+                displayNotif: _hasNotif(date),
+                locale: widget.locale,
+                services: dayServices,
+                serviceIconColor: widget.serviceIconColor,
+                isServiceSelected: (s) => _isServiceSelected(date, s),
+                hasServiceNotif: (s) => _hasNotif(date, service: s),
+                onDateTap: () => _onDateSelected(date),
+                onServiceTap: (s) => _onServiceSelected(
+                  DateService(date: date, service: s),
                 ),
+                nightOverflowWidth: nightOverflowWidth,
               ),
-              Row(
-                children: List.generate(numService, (serviceIndex) {
-                  final service = Utils.getServiceFromIndex(
-                    pickerType: widget.pickerType,
-                    index: serviceIndex,
-                  );
-
-                  bool isSelected = _currentDateService != null
-                      ? Utils.isSameDateService(dateService: DateService(date: date, service: service), dateServiceSelected: _currentDateService!)
-                      : false;
-
-                  bool displayNotif = widget.datesOnNotification == null ? false : widget.datesOnNotification!.where((element) => DateUtils.isSameDay(element.date, date) && element.service == service).isNotEmpty;
-
-                  return ServiceWidget(
-                    date: date,
-                    service: service,
-                    width: widget.width / numService,
-                    locale: widget.locale,
-                    selected: isSelected,
-                    backgroundColor: isSelected ? widget.selectionColor : widget.backgroundColor,
-                    borderColor: widget.borderColor,
-                    iconColor: widget.serviceIconColor,
-                    displayNotif: displayNotif,
-                    dateServiceCallback: (selectedDateService) {
-                      // A date is selected
-                      if(widget.onDateServiceChange != null){
-                        widget.onDateServiceChange!(selectedDateService);
-                      }
-
-                      setState(() {
-                        _currentDateService = selectedDateService;
-                      });
-                    },
-                  );
-                }),
-              ),
-            ],
+            ),
           );
         },
-      )
+      ),
     );
   }
 }
 
+// ================================================================
+// _DateBlock
+// ================================================================
+class _DateBlock extends StatelessWidget {
+  final DateTime date;
+  final bool isSelected;
+  final TextStyle dateTextStyle;
+  final Color selectionColor;
+  final Color backgroundColor;
+  final Color borderColor;
+  final bool displayNotif;
+  final String locale;
+  final List<ServiceType> services;
+  final Color? serviceIconColor;
+  final bool Function(ServiceType) isServiceSelected;
+  final bool Function(ServiceType) hasServiceNotif;
+  final VoidCallback onDateTap;
+  final ValueChanged<ServiceType> onServiceTap;
+  final double nightOverflowWidth;
+
+  const _DateBlock({
+    required this.date,
+    required this.isSelected,
+    required this.dateTextStyle,
+    required this.selectionColor,
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.displayNotif,
+    required this.locale,
+    required this.services,
+    required this.serviceIconColor,
+    required this.isServiceSelected,
+    required this.hasServiceNotif,
+    required this.onDateTap,
+    required this.onServiceTap,
+    required this.nightOverflowWidth,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final nightSel = isServiceSelected(ServiceType.night);
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected ? selectionColor : borderColor,
+          width: isSelected ? 1.5 : 0.5,
+        ),
+        color: isSelected
+            ? selectionColor.withOpacity(0.12)
+            : backgroundColor,
+      ),
+      child: Column(
+        children: [
+          // ── Header date ──────────────────────────────────────
+          Expanded(
+            flex: 5,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onDateTap,
+              child: Stack(
+                children: [
+                  Positioned.fill(child: Container(color: Colors.transparent)),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 8),
+                      child: Text(
+                        "${DateFormat("E", locale).format(date).toUpperCase()} "
+                            "${date.day} "
+                            "${DateFormat("MMM", locale).format(date).toUpperCase()}",
+                        style: dateTextStyle,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  if (displayNotif)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        height: 6,
+                        width: 6,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.red,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Séparateur ───────────────────────────────────────
+          Container(
+            height: 0.5,
+            margin: const EdgeInsets.symmetric(horizontal: 10),
+            color: isSelected
+                ? selectionColor.withOpacity(0.4)
+                : borderColor.withOpacity(0.4),
+          ),
+
+          // ── Services + Night overflow ────────────────────────
+          Expanded(
+            flex: 4,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final serviceWidth = constraints.maxWidth / (services.length + 1);
+                final nightSel = isServiceSelected(ServiceType.night);
+
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Services normaux
+                    Row(
+                      children: [
+                        ...services.map((service) {
+                          final sel = isServiceSelected(service);
+                          final notif = hasServiceNotif(service);
+
+                          return SizedBox(
+                            width: serviceWidth,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => onServiceTap(service),
+                              child: Container(
+                                margin: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: sel
+                                      ? selectionColor.withOpacity(0.25)
+                                      : Colors.transparent,
+                                ),
+                                child: Stack(
+                                  children: [
+                                    Center(
+                                      child: Image.asset(
+                                        Utils.getIconService(service),
+                                        width: 18,
+                                        height: 18,
+                                        color: sel ? Colors.white : serviceIconColor,
+                                        errorBuilder: (_, __, ___) =>
+                                        const Icon(Icons.error, size: 12),
+                                      ),
+                                    ),
+                                    if (notif)
+                                      Positioned(
+                                        top: 2, right: 2,
+                                        child: Container(
+                                          height: 5, width: 5,
+                                          decoration: const BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: AppColors.red,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+
+                        // Placeholder pour le night (espace réservé)
+                        SizedBox(width: serviceWidth),
+                      ],
+                    ),
+
+                    // Night — positionné en absolu, déborde à droite
+                    Positioned(
+                      right: -nightOverflowWidth / 2,
+                      top: 3,
+                      bottom: 3,
+                      width: serviceWidth + nightOverflowWidth / 2,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => onServiceTap(ServiceType.night),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(8),
+                              bottomLeft: Radius.circular(8),
+                              topRight: Radius.circular(12),
+                              bottomRight: Radius.circular(12),
+                            ),
+                            color: nightSel
+                                ? selectionColor.withOpacity(0.25)
+                                : backgroundColor,
+                            border: Border.all(
+                              color: nightSel ? selectionColor : borderColor,
+                              width: nightSel ? 1.5 : 0.5,
+                            ),
+                            // Fix NaN — pas de boxShadow si width/height pas encore calculés
+                          ),
+                          child: Stack(
+                            children: [
+                              Center(
+                                child: Image.asset(
+                                  Utils.getIconService(ServiceType.night),
+                                  width: 18,
+                                  height: 18,
+                                  color: nightSel ? Colors.white : serviceIconColor,
+                                  errorBuilder: (_, __, ___) =>
+                                  const Icon(Icons.nightlight_round, size: 16),
+                                ),
+                              ),
+                              if (hasServiceNotif(ServiceType.night))
+                                Positioned(
+                                  top: 2, right: 2,
+                                  child: Container(
+                                    height: 5, width: 5,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppColors.red,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ================================================================
+// Controller
+// ================================================================
 class DateServicePickerController {
   _DateServicePickerState? _datePickerState;
 
