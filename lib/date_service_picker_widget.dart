@@ -144,11 +144,11 @@ class _DateServicePickerState extends State<DateServicePicker> {
     final prevCross = _crossOf(b(date.subtract(const Duration(days: 1))));
     double w = 12;
     if (prevCross != null) w += _segWidth(prevCross) / 2 + _segGap;
+    final cross = _crossOf(list);
     for (final d in list) {
-      if (d.crossesMidnight) continue;
+      if (identical(d, cross)) continue;
       w += _segWidth(d) + _segGap;
     }
-    final cross = _crossOf(list);
     if (cross != null) w += _segWidth(cross) / 2 + _segGap;
     return w < _dayMin ? _dayMin : w;
   }
@@ -615,7 +615,6 @@ class _CompactDay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inDay = services.where((d) => !d.crossesMidnight).toList();
     DayService? cross;
     for (final d in services.reversed) {
       if (d.crossesMidnight) {
@@ -623,6 +622,9 @@ class _CompactDay extends StatelessWidget {
         break;
       }
     }
+    // Seul le DERNIER segment nocturne est à cheval ; un autre segment qui
+    // traverserait aussi minuit (rare) reste affiché dans le jour.
+    final inDay = services.where((d) => !identical(d, cross)).toList();
     final crossW = cross == null ? 0.0 : segWidth(cross);
     final dayLabel =
         "${DateFormat("E", locale).format(date).toUpperCase()} ${date.day} "
