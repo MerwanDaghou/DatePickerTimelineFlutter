@@ -9,6 +9,19 @@ import 'date_type.dart';
 
 enum DateServicePickerType { detailed, grouped }
 
+/// Un service RÉELLEMENT ouvert un jour donné (fourni par l'app via
+/// [DateServicePicker.dayServicesBuilder]) : la clé technique reste [service],
+/// mais on affiche [label] (ex. « 11h–14h30 ») — bien plus parlant que 5 icônes
+/// abstraites. [isEvent] = créneau d'un événement (icône distincte).
+class DayService {
+  final ServiceType service;
+  final String label;
+  final bool isEvent;
+  const DayService({required this.service, required this.label, this.isEvent = false});
+}
+
+typedef DayServicesBuilder = List<DayService> Function(DateTime date);
+
 class DateServicePicker extends StatefulWidget {
   final DateTime startDate;
   final DateServicePickerType pickerType;
@@ -27,6 +40,10 @@ class DateServicePicker extends StatefulWidget {
   final TextDirection? directionality;
   final String locale;
   final List<DateService>? datesOnNotification;
+  /// Si fourni : n'affiche que les services réels du jour (chips horaires) ; un
+  /// jour sans service n'a pas de rangée (le jour seul se sélectionne). Sinon :
+  /// comportement historique (5 icônes fixes).
+  final DayServicesBuilder? dayServicesBuilder;
 
   DateServicePicker(
       this.startDate, {
@@ -47,6 +64,7 @@ class DateServicePicker extends StatefulWidget {
         this.locale = "en_US",
         this.datesOnNotification,
         this.directionality,
+        this.dayServicesBuilder,
       });
 
   @override
@@ -186,6 +204,7 @@ class _DateServicePickerState extends State<DateServicePicker> {
                   DateService(date: date, service: s),
                 ),
                 nightOverflowWidth: nightOverflowWidth,
+                customServices: widget.dayServicesBuilder?.call(date),
               ),
             ),
           );
@@ -214,6 +233,7 @@ class _DateBlock extends StatelessWidget {
   final VoidCallback onDateTap;
   final ValueChanged<ServiceType> onServiceTap;
   final double nightOverflowWidth;
+  final List<DayService>? customServices;
 
   const _DateBlock({
     required this.date,
@@ -231,6 +251,7 @@ class _DateBlock extends StatelessWidget {
     required this.onDateTap,
     required this.onServiceTap,
     required this.nightOverflowWidth,
+    this.customServices,
   });
 
   @override
@@ -301,6 +322,10 @@ class _DateBlock extends StatelessWidget {
                 : borderColor.withOpacity(0.4),
           ),
 
+          // ── Services RÉELS du jour (chips horaires) ──────────
+          if (customServices != null)
+            Expanded(flex: 4, child: _customServicesRow(context))
+          else
           // ── Services + Night overflow ────────────────────────
           Expanded(
             flex: 4,
@@ -428,6 +453,92 @@ class _DateBlock extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Chips = services réellement ouverts ce jour (label horaires). Aucun → le
+  /// bloc n'affiche que la date (tap = jour entier).
+  Widget _customServicesRow(BuildContext context) {
+    final list = customServices!;
+    if (list.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 4, 6, 6),
+      child: Row(
+        children: list.map((ds) {
+          final sel = isServiceSelected(ds.service);
+          final notif = hasServiceNotif(ds.service);
+          return Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onServiceTap(ds.service),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: sel
+                      ? selectionColor
+                      : selectionColor.withOpacity(isSelected ? 0.10 : 0.06),
+                  border: Border.all(
+                    color: sel ? selectionColor : borderColor.withOpacity(0.6),
+                    width: sel ? 1.5 : 0.5,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (ds.isEvent)
+                            Icon(Icons.local_bar_rounded,
+                                size: 12, color: sel ? Colors.white : serviceIconColor)
+                          else
+                            Image.asset(
+                              Utils.getIconService(ds.service),
+                              width: 12,
+                              height: 12,
+                              color: sel ? Colors.white : serviceIconColor,
+                              errorBuilder: (_, __, ___) => const SizedBox(),
+                            ),
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                              ds.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: sel ? Colors.white : serviceIconColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (notif)
+                      Positioned(
+                        top: 2,
+                        right: 2,
+                        child: Container(
+                          height: 5,
+                          width: 5,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.red,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
