@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:date_picker_timeline/extra/color.dart';
 import 'package:date_picker_timeline/extra/style.dart';
 import 'package:date_picker_timeline/gestures/tap.dart';
@@ -112,18 +113,44 @@ class _DateServicePickerState extends State<DateServicePicker> {
         ScrollController(initialScrollOffset: _getInitialOffset());
   }
 
-  // Largeur minimale d'une chip « service réel » (icône + horaires lisibles).
-  static const double _minChipWidth = 84;
+  // ── Mode compact (services réels) ──────────────────────────────────────
+  static const TextStyle _segStyle = TextStyle(
+      fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: -0.2);
+  static const double _segGap = 4, _segPad = 18, _segIcon = 15, _dayMin = 88;
 
-  /// Largeur du bloc d'un jour : fixe (mode historique) ou adaptée au nombre de
-  /// services réels du jour (jamais de chips écrasées).
+  /// Largeur d'un segment = texte mesuré + icône + padding (jamais tronqué).
+  double _segWidth(DayService ds) {
+    final tp = TextPainter(
+        text: TextSpan(text: ds.label, style: _segStyle),
+        maxLines: 1,
+        textDirection: ui.TextDirection.ltr)
+      ..layout();
+    return tp.width + _segIcon + _segPad;
+  }
+
+  DayService? _crossOf(List<DayService> l) {
+    for (final d in l.reversed) {
+      if (d.crossesMidnight) return d;
+    }
+    return null;
+  }
+
+  /// Un jour = [gauche : moitié de la nuit de la VEILLE] + segments du jour +
+  /// [droite : moitié de sa propre nuit, l'autre moitié déborde sur le lendemain].
   double _slotWidthFor(DateTime date) {
     final b = widget.dayServicesBuilder;
     if (b == null) return slotWidth;
-    final n = b(date).length;
-    if (n == 0) return slotWidth;
-    final needed = n * _minChipWidth + nightOverflowWidth / 2 + 16;
-    return needed > slotWidth ? needed : slotWidth;
+    final list = b(date);
+    final prevCross = _crossOf(b(date.subtract(const Duration(days: 1))));
+    double w = 12;
+    if (prevCross != null) w += _segWidth(prevCross) / 2 + _segGap;
+    for (final d in list) {
+      if (d.crossesMidnight) continue;
+      w += _segWidth(d) + _segGap;
+    }
+    final cross = _crossOf(list);
+    if (cross != null) w += _segWidth(cross) / 2 + _segGap;
+    return w < _dayMin ? _dayMin : w;
   }
 
   double _getInitialOffset() {
@@ -211,6 +238,37 @@ class _DateServicePickerState extends State<DateServicePicker> {
             );
           });
 
+          if (widget.dayServicesBuilder != null) {
+            final list = widget.dayServicesBuilder!(date);
+            final prevCross = _crossOf(widget
+                .dayServicesBuilder!(date.subtract(const Duration(days: 1))));
+            return SizedBox(
+              width: _slotWidthFor(date),
+              child: _CompactDay(
+                date: date,
+                isSelected: isDateSel,
+                dateTextStyle: widget.dateTextStyle,
+                selectionColor: widget.selectionColor,
+                borderColor: widget.borderColor,
+                serviceIconColor: widget.serviceIconColor,
+                displayNotif: _hasNotif(date),
+                locale: widget.locale,
+                services: list,
+                prevCrossHalf:
+                    prevCross == null ? 0 : _segWidth(prevCross) / 2 + _segGap,
+                segWidth: _segWidth,
+                segStyle: _segStyle,
+                segGap: _segGap,
+                isServiceSelected: (s) => _isServiceSelected(date, s),
+                hasServiceNotif: (s) => _hasNotif(date, service: s),
+                onDateTap: () => _onDateSelected(date),
+                onServiceTap: (s) => _onServiceSelected(
+                  DateService(date: date, service: s),
+                ),
+              ),
+            );
+          }
+
           return SizedBox(
             width: _slotWidthFor(date),
             child: Padding(
@@ -234,7 +292,6 @@ class _DateServicePickerState extends State<DateServicePicker> {
                   DateService(date: date, service: s),
                 ),
                 nightOverflowWidth: nightOverflowWidth,
-                customServices: widget.dayServicesBuilder?.call(date),
               ),
             ),
           );
@@ -263,7 +320,6 @@ class _DateBlock extends StatelessWidget {
   final VoidCallback onDateTap;
   final ValueChanged<ServiceType> onServiceTap;
   final double nightOverflowWidth;
-  final List<DayService>? customServices;
 
   const _DateBlock({
     required this.date,
@@ -281,7 +337,6 @@ class _DateBlock extends StatelessWidget {
     required this.onDateTap,
     required this.onServiceTap,
     required this.nightOverflowWidth,
-    this.customServices,
   });
 
   @override
@@ -350,274 +405,144 @@ class _DateBlock extends StatelessWidget {
                 : borderColor.withOpacity(0.4),
           ),
 
-          // ── Services RÉELS du jour (chips horaires) ──────────
-          if (customServices != null)
-            Expanded(flex: 4, child: _customServicesRow(context))
-          else
-            // ── Services + Night overflow ────────────────────────
-            Expanded(
-              flex: 4,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final serviceWidth =
-                      (constraints.maxWidth - nightOverflowWidth / 2) /
-                          (services.length + 1);
-                  final nightSel = isServiceSelected(ServiceType.night);
+          // ── Services + Night overflow ────────────────────────
+          Expanded(
+            flex: 4,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final serviceWidth =
+                    (constraints.maxWidth - nightOverflowWidth / 2) /
+                        (services.length + 1);
+                final nightSel = isServiceSelected(ServiceType.night);
 
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Services normaux
-                      Row(
-                        children: [
-                          SizedBox(width: nightOverflowWidth / 2),
-                          ...services.map((service) {
-                            final sel = isServiceSelected(service);
-                            final notif = hasServiceNotif(service);
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Services normaux
+                    Row(
+                      children: [
+                        SizedBox(width: nightOverflowWidth / 2),
+                        ...services.map((service) {
+                          final sel = isServiceSelected(service);
+                          final notif = hasServiceNotif(service);
 
-                            return SizedBox(
-                              width: serviceWidth,
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () => onServiceTap(service),
-                                child: Container(
-                                  margin: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    color: sel
-                                        ? selectionColor.withOpacity(0.25)
-                                        : Colors.transparent,
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      Center(
-                                        child: Image.asset(
-                                          Utils.getIconService(service),
-                                          width: 18,
-                                          height: 18,
-                                          color: sel
-                                              ? Colors.white
-                                              : serviceIconColor,
-                                          errorBuilder: (_, __, ___) =>
-                                              const Icon(Icons.error, size: 12),
-                                        ),
-                                      ),
-                                      if (notif)
-                                        Positioned(
-                                          top: 2,
-                                          right: 2,
-                                          child: Container(
-                                            height: 5,
-                                            width: 5,
-                                            decoration: const BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: AppColors.red,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
+                          return SizedBox(
+                            width: serviceWidth,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => onServiceTap(service),
+                              child: Container(
+                                margin: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: sel
+                                      ? selectionColor.withOpacity(0.25)
+                                      : Colors.transparent,
                                 ),
-                              ),
-                            );
-                          }).toList(),
-
-                          // Placeholder pour le night (espace réservé)
-                          SizedBox(width: serviceWidth),
-                        ],
-                      ),
-
-                      // Night — positionné en absolu, déborde à droite
-                      Positioned(
-                        right: -nightOverflowWidth / 2,
-                        top: 3,
-                        bottom: 3,
-                        width: serviceWidth + nightOverflowWidth / 2,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => onServiceTap(ServiceType.night),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(8),
-                                bottomLeft: Radius.circular(8),
-                                topRight: Radius.circular(12),
-                                bottomRight: Radius.circular(12),
-                              ),
-                              color: nightSel
-                                  ? selectionColor.withOpacity(0.25)
-                                  : backgroundColor,
-                              border: Border.all(
-                                color: nightSel ? selectionColor : borderColor,
-                                width: nightSel ? 1.5 : 0.5,
-                              ),
-                              // Fix NaN — pas de boxShadow si width/height pas encore calculés
-                            ),
-                            child: Stack(
-                              children: [
-                                Center(
-                                  child: Image.asset(
-                                    Utils.getIconService(ServiceType.night),
-                                    width: 18,
-                                    height: 18,
-                                    color: nightSel
-                                        ? Colors.white
-                                        : serviceIconColor,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                        Icons.nightlight_round,
-                                        size: 16),
-                                  ),
-                                ),
-                                if (hasServiceNotif(ServiceType.night))
-                                  Positioned(
-                                    top: 2,
-                                    right: 2,
-                                    child: Container(
-                                      height: 5,
-                                      width: 5,
-                                      decoration: const BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: AppColors.red,
+                                child: Stack(
+                                  children: [
+                                    Center(
+                                      child: Image.asset(
+                                        Utils.getIconService(service),
+                                        width: 18,
+                                        height: 18,
+                                        color: sel
+                                            ? Colors.white
+                                            : serviceIconColor,
+                                        errorBuilder: (_, __, ___) =>
+                                            const Icon(Icons.error, size: 12),
                                       ),
                                     ),
-                                  ),
-                              ],
+                                    if (notif)
+                                      Positioned(
+                                        top: 2,
+                                        right: 2,
+                                        child: Container(
+                                          height: 5,
+                                          width: 5,
+                                          decoration: const BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: AppColors.red,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ),
+                          );
+                        }).toList(),
+
+                        // Placeholder pour le night (espace réservé)
+                        SizedBox(width: serviceWidth),
+                      ],
+                    ),
+
+                    // Night — positionné en absolu, déborde à droite
+                    Positioned(
+                      right: -nightOverflowWidth / 2,
+                      top: 3,
+                      bottom: 3,
+                      width: serviceWidth + nightOverflowWidth / 2,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => onServiceTap(ServiceType.night),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(8),
+                              bottomLeft: Radius.circular(8),
+                              topRight: Radius.circular(12),
+                              bottomRight: Radius.circular(12),
+                            ),
+                            color: nightSel
+                                ? selectionColor.withOpacity(0.25)
+                                : backgroundColor,
+                            border: Border.all(
+                              color: nightSel ? selectionColor : borderColor,
+                              width: nightSel ? 1.5 : 0.5,
+                            ),
+                            // Fix NaN — pas de boxShadow si width/height pas encore calculés
+                          ),
+                          child: Stack(
+                            children: [
+                              Center(
+                                child: Image.asset(
+                                  Utils.getIconService(ServiceType.night),
+                                  width: 18,
+                                  height: 18,
+                                  color: nightSel
+                                      ? Colors.white
+                                      : serviceIconColor,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.nightlight_round,
+                                      size: 16),
+                                ),
+                              ),
+                              if (hasServiceNotif(ServiceType.night))
+                                Positioned(
+                                  top: 2,
+                                  right: 2,
+                                  child: Container(
+                                    height: 5,
+                                    width: 5,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppColors.red,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
-                    ],
-                  );
-                },
-              ),
+                    ),
+                  ],
+                );
+              },
             ),
-        ],
-      ),
-    );
-  }
-
-  /// Chips = services réellement ouverts ce jour (label horaires). Aucun → le
-  /// bloc n'affiche que la date (tap = jour entier).
-  Widget _customServicesRow(BuildContext context) {
-    final list = customServices!;
-    if (list.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    // Chips « dans la journée » + (au plus) une chip qui traverse minuit,
-    // positionnée en absolu pour DÉBORDER sur le jour suivant.
-    final inDay = list.where((d) => !d.crossesMidnight).toList();
-    final DayService? cross = list.where((d) => d.crossesMidnight).isEmpty
-        ? null
-        : list.lastWhere((d) => d.crossesMidnight);
-    return LayoutBuilder(builder: (context, constraints) {
-      final n = inDay.length + (cross != null ? 1 : 0);
-      final chipWidth =
-          (constraints.maxWidth - nightOverflowWidth / 2 - 12) / n;
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(6, 4, 6, 6),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Row(
-              children: [
-                SizedBox(width: nightOverflowWidth / 2),
-                ...inDay
-                    .map((ds) => SizedBox(width: chipWidth, child: _chip(ds))),
-                if (cross != null) SizedBox(width: chipWidth), // place réservée
-              ],
-            ),
-            if (cross != null)
-              Positioned(
-                right: -nightOverflowWidth / 2 - 6,
-                top: 0,
-                bottom: 0,
-                width: chipWidth + nightOverflowWidth / 2,
-                child: _chip(cross, crossing: true),
-              ),
-          ],
-        ),
-      );
-    });
-  }
-
-  Widget _chip(DayService ds, {bool crossing = false}) {
-    final sel = isServiceSelected(ds.service);
-    final notif = hasServiceNotif(ds.service);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => onServiceTap(ds.service),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          borderRadius: crossing
-              ? const BorderRadius.only(
-                  topLeft: Radius.circular(8),
-                  bottomLeft: Radius.circular(8),
-                  topRight: Radius.circular(12),
-                  bottomRight: Radius.circular(12))
-              : BorderRadius.circular(8),
-          color: sel
-              ? selectionColor
-              : (crossing
-                  ? backgroundColor
-                  : selectionColor.withOpacity(isSelected ? 0.10 : 0.06)),
-          border: Border.all(
-            color: sel
-                ? selectionColor
-                : borderColor.withOpacity(crossing ? 1 : 0.6),
-            width: sel ? 1.5 : 0.5,
           ),
-        ),
-        child: Stack(
-          children: [
-            Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (ds.isEvent)
-                    Icon(Icons.local_bar_rounded,
-                        size: 12, color: sel ? Colors.white : serviceIconColor)
-                  else
-                    Image.asset(
-                      Utils.getIconService(ds.service),
-                      width: 12,
-                      height: 12,
-                      color: sel ? Colors.white : serviceIconColor,
-                      errorBuilder: (_, __, ___) => const SizedBox(),
-                    ),
-                  const SizedBox(width: 3),
-                  Flexible(
-                    child: Text(
-                      ds.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.2,
-                        color: sel ? Colors.white : serviceIconColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (notif)
-              Positioned(
-                top: 2,
-                right: 2,
-                child: Container(
-                  height: 5,
-                  width: 5,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.red,
-                  ),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -642,3 +567,201 @@ class DateService {
 }
 
 enum ServiceType { all, noon, afternoon, daytime, before, night, after }
+
+// ================================================================
+// _CompactDay — mode « services réels » : bande continue, sans cartes.
+//  ligne 1 : le jour (tap = jour entier)          ligne 2 : segments horaires
+//  la nuit (traverse minuit / commence après minuit) est À CHEVAL sur la
+//  frontière avec le lendemain → « la nuit entre ce jour et le suivant ».
+// ================================================================
+class _CompactDay extends StatelessWidget {
+  final DateTime date;
+  final bool isSelected;
+  final TextStyle dateTextStyle;
+  final Color selectionColor;
+  final Color borderColor;
+  final Color? serviceIconColor;
+  final bool displayNotif;
+  final String locale;
+  final List<DayService> services;
+  final double prevCrossHalf;
+  final double Function(DayService) segWidth;
+  final TextStyle segStyle;
+  final double segGap;
+  final bool Function(ServiceType) isServiceSelected;
+  final bool Function(ServiceType) hasServiceNotif;
+  final VoidCallback onDateTap;
+  final ValueChanged<ServiceType> onServiceTap;
+
+  const _CompactDay({
+    required this.date,
+    required this.isSelected,
+    required this.dateTextStyle,
+    required this.selectionColor,
+    required this.borderColor,
+    required this.serviceIconColor,
+    required this.displayNotif,
+    required this.locale,
+    required this.services,
+    required this.prevCrossHalf,
+    required this.segWidth,
+    required this.segStyle,
+    required this.segGap,
+    required this.isServiceSelected,
+    required this.hasServiceNotif,
+    required this.onDateTap,
+    required this.onServiceTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final inDay = services.where((d) => !d.crossesMidnight).toList();
+    DayService? cross;
+    for (final d in services.reversed) {
+      if (d.crossesMidnight) {
+        cross = d;
+        break;
+      }
+    }
+    final crossW = cross == null ? 0.0 : segWidth(cross);
+    final dayLabel =
+        "${DateFormat("E", locale).format(date).toUpperCase()} ${date.day} "
+        "${DateFormat("MMM", locale).format(date).toUpperCase()}";
+
+    return Column(
+      children: [
+        // ── Jour ──
+        Expanded(
+          flex: 5,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onDateTap,
+            child: Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  color: isSelected
+                      ? selectionColor.withOpacity(0.18)
+                      : Colors.transparent,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      dayLabel,
+                      style: dateTextStyle.copyWith(
+                        fontWeight:
+                            isSelected ? FontWeight.w800 : FontWeight.w600,
+                        color:
+                            isSelected ? selectionColor : dateTextStyle.color,
+                      ),
+                      maxLines: 1,
+                    ),
+                    if (displayNotif) ...[
+                      const SizedBox(width: 5),
+                      Container(
+                        height: 6,
+                        width: 6,
+                        decoration: const BoxDecoration(
+                            shape: BoxShape.circle, color: AppColors.red),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        // ── Segments ──
+        Expanded(
+          flex: 4,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Row(
+                children: [
+                  SizedBox(width: 6 + prevCrossHalf),
+                  ...inDay.map((d) => Padding(
+                        padding: EdgeInsets.only(right: segGap),
+                        child: SizedBox(width: segWidth(d), child: _seg(d)),
+                      )),
+                  if (cross != null) SizedBox(width: crossW / 2),
+                ],
+              ),
+              if (cross != null)
+                Positioned(
+                  right: -(crossW / 2) - 6 + segGap,
+                  top: 0,
+                  bottom: 0,
+                  width: crossW,
+                  child: _seg(cross, night: true),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _seg(DayService ds, {bool night = false}) {
+    final sel = isServiceSelected(ds.service);
+    final notif = hasServiceNotif(ds.service);
+    final Color fg = sel ? Colors.white : (serviceIconColor ?? Colors.white);
+    final Color bg = sel
+        ? selectionColor
+        : (ds.isEvent
+            ? selectionColor.withOpacity(0.22)
+            : borderColor.withOpacity(night ? 0.22 : 0.14));
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onServiceTap(ds.service),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(9),
+          color: bg,
+          border: night && !sel
+              ? Border.all(color: selectionColor.withOpacity(0.55), width: 1)
+              : null,
+        ),
+        child: Stack(
+          children: [
+            Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (ds.isEvent)
+                    Icon(Icons.local_bar_rounded, size: 13, color: fg)
+                  else
+                    Image.asset(
+                      Utils.getIconService(ds.service),
+                      width: 13,
+                      height: 13,
+                      color: fg,
+                      errorBuilder: (_, __, ___) => const SizedBox(),
+                    ),
+                  const SizedBox(width: 4),
+                  Text(ds.label,
+                      maxLines: 1, style: segStyle.copyWith(color: fg)),
+                ],
+              ),
+            ),
+            if (notif)
+              Positioned(
+                top: 2,
+                right: 3,
+                child: Container(
+                  height: 5,
+                  width: 5,
+                  decoration: const BoxDecoration(
+                      shape: BoxShape.circle, color: AppColors.red),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
