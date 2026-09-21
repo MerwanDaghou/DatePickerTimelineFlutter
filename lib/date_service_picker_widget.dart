@@ -112,6 +112,20 @@ class _DateServicePickerState extends State<DateServicePicker> {
         ScrollController(initialScrollOffset: _getInitialOffset());
   }
 
+  // Largeur minimale d'une chip « service réel » (icône + horaires lisibles).
+  static const double _minChipWidth = 84;
+
+  /// Largeur du bloc d'un jour : fixe (mode historique) ou adaptée au nombre de
+  /// services réels du jour (jamais de chips écrasées).
+  double _slotWidthFor(DateTime date) {
+    final b = widget.dayServicesBuilder;
+    if (b == null) return slotWidth;
+    final n = b(date).length;
+    if (n == 0) return slotWidth;
+    final needed = n * _minChipWidth + nightOverflowWidth / 2 + 16;
+    return needed > slotWidth ? needed : slotWidth;
+  }
+
   double _getInitialOffset() {
     if (_currentDateService != null) {
       final current = DateTime(
@@ -125,7 +139,14 @@ class _DateServicePickerState extends State<DateServicePicker> {
         widget.startDate.day,
       );
       final diff = current.difference(first).inDays;
-      if (diff > 0) return diff * slotWidth;
+      if (diff > 0) {
+        if (widget.dayServicesBuilder == null) return diff * slotWidth;
+        double off = 0;
+        for (int i = 0; i < diff; i++) {
+          off += _slotWidthFor(first.add(Duration(days: i)));
+        }
+        return off;
+      }
     }
     return 0;
   }
@@ -191,7 +212,7 @@ class _DateServicePickerState extends State<DateServicePicker> {
           });
 
           return SizedBox(
-            width: slotWidth,
+            width: _slotWidthFor(date),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
               child: _DateBlock(
@@ -527,7 +548,7 @@ class _DateBlock extends StatelessWidget {
       onTap: () => onServiceTap(ds.service),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           borderRadius: crossing
               ? const BorderRadius.only(
@@ -572,8 +593,9 @@ class _DateBlock extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
                         color: sel ? Colors.white : serviceIconColor,
                       ),
                     ),
