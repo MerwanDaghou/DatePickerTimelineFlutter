@@ -130,6 +130,13 @@ class _DateServicePickerState extends State<DateServicePicker> {
   }
 
   void _onServiceSelected(DateService ds) {
+    // Tap sur un service d'un AUTRE jour que celui sélectionné → on sélectionne
+    // d'abord le jour entier (tous les services). Le service ne se choisit que
+    // sur un jour déjà sélectionné (évite « mauvais service → 0 réservation »).
+    if (!_isDateSelected(ds.date)) {
+      _onDateSelected(ds.date);
+      return;
+    }
     widget.onDateServiceChange?.call(ds);
     setState(() => _currentDateService = ds);
   }
